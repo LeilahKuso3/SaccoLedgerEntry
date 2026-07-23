@@ -1,0 +1,19 @@
+# AL packages
+.alpackages/
+
+# AL extension cache
+.vscode/.alcache/
+
+# VS Code settings
+.vscode/settings.json
+
+# Build outputs
+*.app
+*.cache
+
+# Test results
+TestResults/
+
+# Windows
+Thumbs.db
+Desktop.ini
