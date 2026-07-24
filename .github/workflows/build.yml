@@ -8,7 +8,7 @@ on:
 jobs:
   # ---------- CI: Build and Test ----------
   build-and-test:
-    runs-on: self-hosted
+    runs-on: windows-latest
 
     steps:
       - name: Check out repository
@@ -32,15 +32,30 @@ jobs:
           Write-Host "Version bumped: $newVersion"
           "app_version=$newVersion" >> $env:GITHUB_OUTPUT
 
+      - name: Install BcContainerHelper
+        shell: powershell
+        run: |
+          Install-Module BcContainerHelper -Force -AcceptLicense
+
+      - name: Create BC container
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          New-BcContainer `
+            -accept_eula `
+            -containerName "saccoci" `
+            -auth NavUserPassword `
+            -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
+
       - name: Compile app
         shell: powershell
         run: |
           Import-Module BcContainerHelper
           Compile-AppInBcContainer `
-            -containerName "bc270" `
-            -credential (New-Object PSCredential "Leilah", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
-            -appProjectFolder $env:BUILD_FOLDER `
-            -appOutputFolder (Join-Path $env:BUILD_FOLDER "output") `
+            -containerName "saccoci" `
+            -credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
+            -appProjectFolder $env:GITHUB_WORKSPACE `
+            -appOutputFolder (Join-Path $env:GITHUB_WORKSPACE "output") `
             -EnableCodeCop `
             -EnableAppSourceCop:$false
 
@@ -49,8 +64,8 @@ jobs:
         run: |
           Import-Module BcContainerHelper
           Publish-BcContainerApp `
-            -containerName "bc270" `
-            -appFile "./output/*.app" `
+            -containerName "saccoci" `
+            -appFile (Join-Path $env:GITHUB_WORKSPACE "output\*.app") `
             -skipVerification `
             -install `
             -sync
@@ -60,20 +75,27 @@ jobs:
         run: |
           Import-Module BcContainerHelper
           Run-TestsInBcContainer `
-            -containerName "bc270" `
-            -credential (New-Object PSCredential "Leilah", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
+            -containerName "saccoci" `
+            -credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
             -testCodeunit "Member Journal Post Tests"
 
       - name: Upload compiled app as artifact
         uses: actions/upload-artifact@v4
         with:
           name: sacco-app
-          path: ./output/*.app
+          path: ${{ github.workspace }}\output\*.app
+
+      - name: Remove container
+        if: always()
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          Remove-BcContainer -containerName "saccoci"
 
   # ---------- CD: Deploy ----------
   deploy:
     needs: build-and-test
-    runs-on: self-hosted
+    runs-on: windows-latest
 
     steps:
       - name: Download compiled app
@@ -82,14 +104,36 @@ jobs:
           name: sacco-app
           path: ./output
 
+      - name: Install BcContainerHelper
+        shell: powershell
+        run: |
+          Install-Module BcContainerHelper -Force -AcceptLicense
+
+      - name: Create deployment container
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          New-BcContainer `
+            -accept_eula `
+            -containerName "saccoprod" `
+            -auth NavUserPassword `
+            -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
+
       - name: Deploy to Business Central
         shell: powershell
         run: |
           Import-Module BcContainerHelper
           Publish-BcContainerApp `
-            -containerName "bc270" `
+            -containerName "saccoprod" `
             -appFile "./output/*.app" `
             -skipVerification `
             -install `
             -sync `
             -syncMode ForceSync
+
+      - name: Remove container
+        if: always()
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          Remove-BcContainer -containerName "saccoprod"
