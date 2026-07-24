@@ -56,8 +56,8 @@ jobs:
           Compile-AppInBcContainer `
             -containerName "saccoci" `
             -credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
-            -appProjectFolder $env:GITHUB_WORKSPACE `
-            -appOutputFolder (Join-Path $env:GITHUB_WORKSPACE "output") `
+            -appProjectFolder "C:\workspace" `
+            -appOutputFolder "C:\workspace\output" `
             -EnableCodeCop `
             -EnableAppSourceCop:$false
 
@@ -67,11 +67,10 @@ jobs:
           Import-Module BcContainerHelper
           Publish-BcContainerApp `
             -containerName "saccoci" `
-            -appFile (Join-Path $env:GITHUB_WORKSPACE "output\*.app") `
+            -appFile "C:\workspace\output\*.app" `
             -skipVerification `
             -install `
             -sync
-
       - name: Run AL tests
         shell: powershell
         run: |
