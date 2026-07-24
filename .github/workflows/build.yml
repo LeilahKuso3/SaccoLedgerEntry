@@ -1,13 +1,93 @@
-name: Build
+name: BC CI/CD Pipeline
+
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  # ---------- CI: Build and Test ----------
+  build-and-test:
+    runs-on: self-hosted
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Run build
-        run: echo "Build workflow is valid"
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Bump version using run number
+        id: bumpversion
+        shell: powershell
+        run: |
+          $appJsonPath = Join-Path $env:GITHUB_WORKSPACE "app.json"
+          $appJson = Get-Content $appJsonPath -Raw | ConvertFrom-Json
+
+          # Keep Major.Minor.Build from app.json, replace only the Revision segment
+          # with the GitHub run number, e.g. 1.0.0.0 -> 1.0.0.247
+          $parts = $appJson.version -split '\.'
+          $newVersion = "$($parts[0]).$($parts[1]).$($parts[2]).${{ github.run_number }}"
+          $appJson.version = $newVersion
+
+          $appJson | ConvertTo-Json -Depth 10 | Set-Content -Path $appJsonPath -Encoding UTF8
+
+          Write-Host "Version bumped: $newVersion"
+          "app_version=$newVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Compile app
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          Compile-AppInBcContainer `
+            -containerName "bc270" `
+            -credential (New-Object PSCredential "Leilah", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
+            -appProjectFolder "." `
+            -appOutputFolder "./output"
+
+      - name: Publish app to test instance
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          Publish-BcContainerApp `
+            -containerName "bc270" `
+            -appFile "./output/*.app" `
+            -skipVerification `
+            -install `
+            -sync
+
+      - name: Run AL tests
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          Run-TestsInBcContainer `
+            -containerName "bc270" `
+            -credential (New-Object PSCredential "Leilah", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
+            -testCodeunit "Member Journal Post Tests"
+
+      - name: Upload compiled app as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sacco-app
+          path: ./output/*.app
+
+  # ---------- CD: Deploy ----------
+  deploy:
+    needs: build-and-test
+    runs-on: self-hosted
+
+    steps:
+      - name: Download compiled app
+        uses: actions/download-artifact@v4
+        with:
+          name: sacco-app
+          path: ./output
+
+      - name: Deploy to Business Central
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          Publish-BcContainerApp `
+            -containerName "bc270" `
+            -appFile "./output/*.app" `
+            -skipVerification `
+            -install `
+            -sync `
+            -syncMode ForceSync
