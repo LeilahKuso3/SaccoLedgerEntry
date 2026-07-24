@@ -39,8 +39,10 @@ jobs:
           Compile-AppInBcContainer `
             -containerName "bc270" `
             -credential (New-Object PSCredential "Leilah", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
-            -appProjectFolder "." `
-            -appOutputFolder "./output"
+            -appProjectFolder $env:BUILD_FOLDER `
+            -appOutputFolder (Join-Path $env:BUILD_FOLDER "output") `
+            -EnableCodeCop `
+            -EnableAppSourceCop:$false
 
       - name: Publish app to test instance
         shell: powershell
