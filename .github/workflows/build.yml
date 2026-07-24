@@ -41,6 +41,7 @@ jobs:
         shell: powershell
         run: |
           Import-Module BcContainerHelper
+          $artifactUrl = Get-BcArtifactUrl -country "us" -select Latest
           New-BcContainer `
             -accept_eula `
             -containerName "saccoci" `
