@@ -47,7 +47,7 @@ jobs:
             -containerName "saccoci" `
              -artifactUrl $artifactUrl `
             -auth NavUserPassword `
-            -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
+             -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
             -additionalParameters @("--volume ""$($env:GITHUB_WORKSPACE):C:\workspace""")
 
       - name: Compile app
@@ -120,7 +120,8 @@ jobs:
             -accept_eula `
             -containerName "saccoprod" `
             -auth NavUserPassword `
-            -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
+             -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
+            -additionalParameters @("--volume ""$($env:GITHUB_WORKSPACE):C:\workspace""")
 
       - name: Deploy to Business Central
         shell: powershell
