@@ -47,6 +47,7 @@ jobs:
             -containerName "saccoci" `
             -artifactUrl $artifactUrl `
             -auth NavUserPassword `
+             -isolation process `
             -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
 
       - name: Copy source into container
@@ -133,6 +134,7 @@ jobs:
             -containerName "saccoprod" `
             -artifactUrl $artifactUrl `
             -auth NavUserPassword `
+            -isolation process `
             -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
 
       - name: Deploy to Business Central
