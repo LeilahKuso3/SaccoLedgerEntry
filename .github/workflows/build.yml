@@ -38,6 +38,13 @@ jobs:
           Install-Module BcContainerHelper -Force -AllowClobber -Scope CurrentUser
           Import-Module BcContainerHelper
 
+      - name: Switch Docker to Windows containers
+        shell: powershell
+        run: |
+          & "$env:ProgramFiles\Docker\Docker\DockerCli.exe" -SwitchDaemon
+          Start-Sleep -Seconds 15
+          docker version
+
       - name: 'Copy project to C: drive'
         shell: powershell
         run: |
