@@ -48,6 +48,7 @@ jobs:
              -artifactUrl $artifactUrl `
             -auth NavUserPassword `
             -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
+            -additionalParameters @("--volume ""$($env:GITHUB_WORKSPACE):C:\workspace""")
 
       - name: Compile app
         shell: powershell
@@ -71,6 +72,7 @@ jobs:
             -skipVerification `
             -install `
             -sync
+
       - name: Run AL tests
         shell: powershell
         run: |
