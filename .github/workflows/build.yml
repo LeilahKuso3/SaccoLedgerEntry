@@ -121,4 +121,85 @@ jobs:
           $credential = New-Object PSCredential($env:CONTAINER_USER, (ConvertTo-SecureString $env:CONTAINER_PASSWORD -AsPlainText -Force))
 
           Write-Host "Apps installed in container:"
-          Get-BcContainerAppInfo -containerName
+          Get-BcContainerAppInfo -containerName $env:CONTAINER_NAME | Format-Table Name, Publisher, Version, ExtensionId
+
+          Write-Host ""
+          Write-Host "Test codeunits discovered:"
+          Get-TestsFromBCContainer -containerName $env:CONTAINER_NAME -credential $credential | Format-Table -AutoSize
+
+      - name: Run automated tests
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          $credential = New-Object PSCredential($env:CONTAINER_USER, (ConvertTo-SecureString $env:CONTAINER_PASSWORD -AsPlainText -Force))
+          $results = Run-TestsInBcContainer `
+            -containerName $env:CONTAINER_NAME `
+            -credential $credential `
+            -detailed `
+            -returnTrueIfAllPassed
+
+          Write-Host "All tests passed: $results"
+
+          if (-not $results) {
+            throw "One or more tests failed. Failing the pipeline."
+          }
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sacco-app
+          path: ${{ env.BUILD_FOLDER }}\output\*.app
+          if-no-files-found: error
+
+      - name: Remove build container
+        if: always()
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          Remove-BcContainer -containerName $env:CONTAINER_NAME -ErrorAction SilentlyContinue
+
+  deploy:
+    needs: build-and-test
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    steps:
+      - name: Download app artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sacco-app
+          path: ./output
+
+      - name: Deploy to local bc270 container
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          $credential = New-Object PSCredential("Leilah", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
+
+          $appFile = Get-ChildItem -Path "./output" -Filter *.app | Select-Object -First 1
+          Write-Host "Deploying $($appFile.Name) to bc270"
+
+          Publish-BcContainerApp `
+            -containerName "bc270" `
+            -credential $credential `
+            -appFile $appFile.FullName `
+            -skipVerification `
+            -install `
+            -sync `
+            -syncMode ForceSync
+
+          Write-Host "Deploy step completed."
+
+      - name: Verify installation
+        shell: powershell
+        run: |
+          Import-Module BcContainerHelper
+          $appFile = Get-ChildItem -Path "./output" -Filter *.app | Select-Object -First 1
+
+          $installed = Get-BcContainerAppInfo -containerName "bc270" |
+                       Where-Object { $_.Name -eq "Sacco" -and $_.IsInstalled -eq $true }
+
+          if (-not $installed) {
+            throw "Verification failed: app is not showing as installed on bc270."
+          }
+
+          Write-Host "Verified: $($installed.Name) v$($installed.Version) is installed on bc270."
