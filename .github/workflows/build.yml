@@ -47,14 +47,9 @@ jobs:
             -containerName "saccoci" `
             -artifactUrl $artifactUrl `
             -auth NavUserPassword `
-             -isolation process `
-            -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
-
-      - name: Copy source into container
-        shell: powershell
-        run: |
-          docker exec saccoci powershell -Command "New-Item -Path 'C:\workspace' -ItemType Directory -Force"
-          docker cp "$env:GITHUB_WORKSPACE\." saccoci:C:\workspace
+            -isolation process `
+            -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
+            -additionalParameters @("--volume ""$($env:GITHUB_WORKSPACE):C:\workspace""")
 
       - name: Compile app
         shell: powershell
@@ -87,12 +82,6 @@ jobs:
             -containerName "saccoci" `
             -credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
             -testCodeunit "Member Journal Post Tests"
-
-      - name: Copy compiled app out of container
-        shell: powershell
-        run: |
-          New-Item -Path "$env:GITHUB_WORKSPACE\output" -ItemType Directory -Force
-          docker cp saccoci:C:\workspace\output\. "$env:GITHUB_WORKSPACE\output"
 
       - name: Upload compiled app as artifact
         uses: actions/upload-artifact@v4
