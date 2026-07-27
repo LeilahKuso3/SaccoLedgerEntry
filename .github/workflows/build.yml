@@ -38,13 +38,6 @@ jobs:
           Install-Module BcContainerHelper -Force -AllowClobber -Scope CurrentUser
           Import-Module BcContainerHelper
 
-      - name: Switch Docker to Windows containers
-        shell: powershell
-        run: |
-          & "$env:ProgramFiles\Docker\Docker\DockerCli.exe" -SwitchDaemon
-          Start-Sleep -Seconds 15
-          docker version
-
       - name: 'Copy project to C: drive'
         shell: powershell
         run: |
@@ -126,16 +119,13 @@ jobs:
         run: |
           Import-Module BcContainerHelper
           $credential = New-Object PSCredential($env:CONTAINER_USER, (ConvertTo-SecureString $env:CONTAINER_PASSWORD -AsPlainText -Force))
-          $containerName = $env:CONTAINER_NAME
-
-          Write-Host "Container name resolved to: '$containerName'"
 
           Write-Host "Apps installed in container:"
-          Get-BcContainerAppInfo -containerName $containerName | Format-Table Name, Publisher, Version, ExtensionId
+          Get-BcContainerAppInfo -containerName $env:CONTAINER_NAME | Format-Table Name, Publisher, Version, ExtensionId
 
           Write-Host ""
           Write-Host "Test codeunits discovered:"
-          Get-TestsFromBCContainer -containerName $containerName -credential $credential | Format-Table -AutoSize
+          Get-TestsFromBCContainer -containerName $env:CONTAINER_NAME -credential $credential | Format-Table -AutoSize
 
       - name: Run automated tests
         shell: powershell
