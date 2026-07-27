@@ -45,10 +45,15 @@ jobs:
           New-BcContainer `
             -accept_eula `
             -containerName "saccoci" `
-             -artifactUrl $artifactUrl `
+            -artifactUrl $artifactUrl `
             -auth NavUserPassword `
-             -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
-            -additionalParameters @("--volume ""$($env:GITHUB_WORKSPACE):C:\workspace""")
+            -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
+
+      - name: Copy source into container
+        shell: powershell
+        run: |
+          docker exec saccoci powershell -Command "New-Item -Path 'C:\workspace' -ItemType Directory -Force"
+          docker cp "$env:GITHUB_WORKSPACE\." saccoci:C:\workspace
 
       - name: Compile app
         shell: powershell
@@ -81,6 +86,12 @@ jobs:
             -containerName "saccoci" `
             -credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
             -testCodeunit "Member Journal Post Tests"
+
+      - name: Copy compiled app out of container
+        shell: powershell
+        run: |
+          New-Item -Path "$env:GITHUB_WORKSPACE\output" -ItemType Directory -Force
+          docker cp saccoci:C:\workspace\output\. "$env:GITHUB_WORKSPACE\output"
 
       - name: Upload compiled app as artifact
         uses: actions/upload-artifact@v4
@@ -116,12 +127,13 @@ jobs:
         shell: powershell
         run: |
           Import-Module BcContainerHelper
+          $artifactUrl = Get-BcArtifactUrl -country "us" -select Latest
           New-BcContainer `
             -accept_eula `
             -containerName "saccoprod" `
+            -artifactUrl $artifactUrl `
             -auth NavUserPassword `
-             -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force)) `
-            -additionalParameters @("--volume ""$($env:GITHUB_WORKSPACE):C:\workspace""")
+            -Credential (New-Object PSCredential "admin", (ConvertTo-SecureString "${{ secrets.BC_PASSWORD }}" -AsPlainText -Force))
 
       - name: Deploy to Business Central
         shell: powershell
