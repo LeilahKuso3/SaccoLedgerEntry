@@ -168,7 +168,6 @@ jobs:
         with:
           name: sacco-app
           path: ./output
-
       - name: Deploy to local bc270 container
         shell: powershell
         run: |
@@ -178,14 +177,37 @@ jobs:
           $appFile = Get-ChildItem -Path "./output" -Filter *.app | Select-Object -First 1
           Write-Host "Deploying $($appFile.Name) to bc270"
 
-          Publish-BcContainerApp `
-            -containerName "bc270" `
-            -credential $credential `
-            -appFile $appFile.FullName `
-            -skipVerification `
-            -install `
-            -sync `
-            -syncMode ForceSync
+          $ErrorActionPreference = "Stop"
+
+          try {
+            Publish-BcContainerApp `
+              -containerName "bc270" `
+              -credential $credential `
+              -appFile $appFile.FullName `
+              -skipVerification `
+              -install `
+              -sync `
+              -syncMode ForceSync
+            Write-Host "Published and installed successfully (fresh install)."
+          } catch {
+            if ($_.Exception.Message -match "already uses a different version") {
+              Write-Host "A different version is already installed - retrying with -upgrade."
+              Publish-BcContainerApp `
+                -containerName "bc270" `
+                -credential $credential `
+                -appFile $appFile.FullName `
+                -skipVerification `
+                -install `
+                -sync `
+                -syncMode ForceSync `
+                -upgrade
+              Write-Host "Upgraded successfully."
+            } elseif ($_.Exception.Message -match "already installed") {
+              Write-Host "This exact version is already installed - nothing to do."
+            } else {
+              throw
+            }
+          }
 
           Write-Host "Deploy step completed."
 
