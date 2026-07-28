@@ -40,7 +40,7 @@ codeunit 50357 "Member Journal Post Tests"
         MemberJournalLine.Insert();
         PostedLineNo := MemberJournalLine."Line No.";
 
-        // When: it gets posted
+        // when posting the line
         PostMemberJournal.PostJournalLine(MemberJournalLine);
 
         // Then: the line should no longer exist in the journal
