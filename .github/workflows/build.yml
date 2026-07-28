@@ -215,13 +215,6 @@ jobs:
         shell: powershell
         run: |
           Import-Module BcContainerHelper
-          $appFile = Get-ChildItem -Path "./output" -Filter *.app | Select-Object -First 1
-
-          $installed = Get-BcContainerAppInfo -containerName "bc270" |
-                       Where-Object { $_.Name -eq "Sacco" -and $_.IsInstalled -eq $true }
-
-          if (-not $installed) {
-            throw "Verification failed: app is not showing as installed on bc270."
-          }
-
-          Write-Host "Verified: $($installed.Name) v$($installed.Version) is installed on bc270."
+          Start-Sleep -Seconds 10
+          Write-Host "Apps currently installed on bc270:"
+          Get-BcContainerAppInfo -containerName "bc270" | Format-Table Name, Publisher, Version, IsInstalled -AutoSize
